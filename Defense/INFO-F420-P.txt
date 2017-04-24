@@ -1,0 +1,10 @@
+#1
+I'm going to talk about the framework of coresets which, in short, is a way to approximate extent measures of sets of points.
+
+#2
+Here are the subjects for today, so at first I start by describing the problem at hand with geometric approximations. Then we'll go through some generic theoretical notions on envelopes, extent, directions and widths. Then finally I'll describe two ways to build coresets and show you a demo.
+
+#3
+About geometric approximations
+
+#4

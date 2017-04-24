@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<script src='vendor/three.js/build/three.min.js'></script>
+<script src='vendor/three.js/examples/js/controls/OrbitControls.js'></script>
+<script src='kdtree.js'></script>
+<link href="https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300,700" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<body>
+	<div class="row" id="container">
+		<div class="col-xs-2" id="header">
+			<div>
+				<form>
+					<h2>Coreset</h2>
+					<div class="form-group">
+						<label for="email">Epsilon (<span id="epsilon_value">0.01</span>) </label>
+						<input type="range" class="form-control" id="epsilon" value="0.001" max="0.25" min="0.0001" step="0.001" onchange="refresh();">
+					</div>
+					<div class="form-group">
+						<label>Input set size: <span id="pointsinP">1000</span></label><br />
+						<label>Coreset size: <span id="coreset_size">43</span></label><br />
+						<label>Error: <span id="coreset_err"></span></label><br />
+						<div style="display: none;">
+						<label>Width of P in x: <span id="wx_p"></span></label><br />
+						<label>Width of Q in x: <span id="wx_q"></span></label><br />
+						<label>Width of P in y: <span id="wy_p"></span></label><br />
+						<label>Width of Q in y: <span id="wy_q"></span></label><br />
+					</div>
+					</div>
+				</form>
+			</div>
+		</div>
+		<div class="col-xs-10" id="content">
+		</div>
+	</div>
+<script>
+	// Init
+	function getRandom(size) {
+		return ((Math.random() + Math.random()) - 1) * size + size;
+	}
+	function distance(a, b, c){
+	  return Math.sqrt(Math.pow(a.x - b.x, 2) +  Math.pow(a.y - b.y, 2));
+	}
+	var renderer	= new THREE.WebGLRenderer({
+		antialias	: true
+	});
+	var contentDiv = document.getElementById('content');
+	renderer.setClearColor(new THREE.Color(0xffffff), 1)
+	renderer.setSize(contentDiv.clientWidth, contentDiv.clientHeight);
+	document.getElementById("content").appendChild( renderer.domElement );
+	var onRenderFcts = [];
+	var scene	= new THREE.Scene();
+	var camera	= new THREE.PerspectiveCamera(65, contentDiv.clientWidth / contentDiv.clientHeight, 0.01, 1000);
+	camera.position.z = 2;
+	var controls	= new THREE.OrbitControls(camera, content);
+
+	//
+	//
+
+	// Parameters - will be updated with user controls
+	var D = 2,
+			EPSILON = 0.001,
+			ALPHA = 0.1,
+			DELTA = Math.sqrt(EPSILON * ALPHA),
+			CORE_PARTICLE_COUNT = Math.ceil(1/DELTA),
+			OUTER_RADIUS = Math.sqrt(D) + 1,
+			PARTICLE_COUNT = 10000,
+			X_SPREAD = 1,
+			Y_SPREAD = 1;
+
+	// Particle variables
+	function buildScene() {
+		var particles = new THREE.Geometry(),
+				coreParticles = new THREE.Geometry(),
+		    particleMaterial = new THREE.ParticleBasicMaterial({
+					color: 0x000000,
+	  			size: 0.01,
+				}),
+				coreParticleMaterial = new THREE.ParticleBasicMaterial({
+					color: 0x0000ff,
+					size: 0.08
+				}),
+				sphereParticleMaterial = new THREE.ParticleBasicMaterial({
+					color: 0x4444ff,
+					size: 0.04
+				}),
+				sphereParticles = new THREE.Geometry(),
+				lineMaterial = new THREE.LineBasicMaterial({
+					color: 0x9999ff
+				});
+				lineCoreMaterial = new THREE.LineBasicMaterial({
+					color: 0x0000ff,
+					linewidth: 10,
+				});
+
+		// Add points to P then insert them in the k-d tree
+		var points = [];
+		for (var p = 0; p < PARTICLE_COUNT; p++) {
+			var x = getRandom(X_SPREAD) - X_SPREAD,
+					y = getRandom(Y_SPREAD) - Y_SPREAD;
+			var particle = new THREE.Vector3(x, y, 0);
+		  // Add it to the geometry
+		  particles.vertices.push(particle);
+			points.push({x: x, y: y});
+		}
+		var tree = new kdTree(points, distance, ["x", "y"]);
+
+		// Draw J, the outer circle
+		for (var p = 0; p < CORE_PARTICLE_COUNT; p++) {
+			// Add the point on outer sphere J
+			var r = OUTER_RADIUS,
+					theta = 2*Math.PI*p/CORE_PARTICLE_COUNT,
+					x = r * Math.cos(theta),
+					y = r * Math.sin(theta),
+					particle = new THREE.Vector3(x,y,0);
+			sphereParticles.vertices.push(particle);
+
+			// Find the nearest point in set P
+			var nearest = tree.nearest({ x: x, y: y }, 1)[0][0],
+					nearestParticle = new THREE.Vector3(nearest.x,nearest.y,0);
+			coreParticles.vertices.push(nearestParticle);
+
+			// Connect them with a line
+			/* Hide them for the intro
+			var lineGeometry = new THREE.Geometry(),
+					line = new THREE.Line(lineGeometry, lineMaterial);
+			lineGeometry.vertices.push(particle, nearestParticle);
+			scene.add(line);
+			*/
+		}
+
+	// Instantiate the whole particle system for P
+	var particleSystem = new THREE.ParticleSystem(
+	    particles,
+	    particleMaterial);
+	scene.add(particleSystem);
+
+	// Same for the outer envelope J
+	/* Hide them for the intro
+	var sphereParticleSystem = new THREE.ParticleSystem(
+	    sphereParticles,
+	    sphereParticleMaterial);
+	scene.add(sphereParticleSystem);
+	*/
+
+	// Highlight particles in P that belong to the coreset
+	var coreParticlesystem = new THREE.ParticleSystem(
+	    coreParticles,
+	    coreParticleMaterial);
+	scene.add(coreParticlesystem);
+
+	// Draw circle J
+	/* Hide it for the intro
+	var geometry = new THREE.CircleGeometry(OUTER_RADIUS, 32 );
+	var material = new THREE.MeshBasicMaterial( {color: 0xccccff, transparent: true, opacity: 0.3,} );
+	var sphere = new THREE.Mesh(geometry, material);
+	scene.add(sphere);
+	*/
+
+	computeError(particles, coreParticles);
+}
+buildScene();
+
+//
+//
+
+// Render the whole scene
+window.addEventListener('resize', function(){
+	renderer.setSize(contentDiv.clientWidth, contentDiv.clientHeight)
+	camera.aspect	= contentDiv.clientWidth / contentDiv.clientHeight
+	camera.updateProjectionMatrix()
+}, false)
+onRenderFcts.push(function(){
+	renderer.render( scene, camera );
+})
+var lastTimeMsec= null
+requestAnimationFrame(function animate(nowMsec){
+	// keep looping
+	requestAnimationFrame( animate );
+	// measure time
+	lastTimeMsec	= lastTimeMsec || nowMsec-1000/60
+	var deltaMsec	= Math.min(200, nowMsec - lastTimeMsec)
+	lastTimeMsec	= nowMsec
+	// call each update function
+	onRenderFcts.forEach(function(onRenderFct){
+		onRenderFct(deltaMsec/1000, nowMsec/1000)
+	})
+})
+function eraseScene() {
+	while(scene.children.length > 0){
+    scene.remove(scene.children[0]);
+	}
+}
+
+function computeError(particles, coreParticles) {
+	// Directional widths are symmetrical
+	x_min = 0;				// horizontal direction
+	x_max = 0;
+	x_min_core = 0;
+	x_max_core = 0;
+	y_min = 0;				// vertical direction
+	y_max = 0;
+	y_min_core = 0;
+	y_max_core = 0;
+	xy_min = 0;				// top right diagonal direction
+	xy_max = 0;
+	xy_min_core = 0;
+	xy_max_core = 0;
+	mxy_min = 0;			// bottom right direction
+	mxy_max = 0;
+	mxy_min_core = 0;
+	mxy_max_core = 0;
+	var xy_unit_dir = 1 * Math.cos(Math.PI/4);
+	var mxy_unit_dir = 1 * Math.cos(Math.PI/4);
+	for(var p = 0; p < particles.vertices.length; p++) {
+		particle = particles.vertices[p];
+		if(particle.x < x_min) //
+			x_min = particle.x;
+		if(particle.x > x_max)
+			x_max = particle.x;
+		if(particle.y < y_min)
+			y_min = particle.y;
+		if(particle.y > y_max)
+			y_max = particle.y;
+		if(xy_unit_dir * particle.y + xy_unit_dir * particle.x < xy_min)
+			xy_min = xy_unit_dir * particle.y + xy_unit_dir * particle.x;
+		if(xy_unit_dir * particle.y + xy_unit_dir * particle.x > xy_max)
+			xy_max = xy_unit_dir * particle.y + xy_unit_dir * particle.x;
+		if(mxy_unit_dir * particle.y + xy_unit_dir * particle.x < mxy_min)
+			mxy_min = mxy_unit_dir * particle.y + xy_unit_dir * particle.x;
+		if(mxy_unit_dir * particle.y + xy_unit_dir * particle.x > mxy_max)
+			mxy_max = mxy_unit_dir * particle.y + xy_unit_dir * particle.x;
+	}
+	for(var p = 0; p < coreParticles.vertices.length; p++) {
+		particle = coreParticles.vertices[p];
+		if(particle.x < x_min_core)
+			x_min_core = particle.x;
+		if(particle.x > x_max_core)
+			x_max_core = particle.x;
+		if(particle.y < y_min_core)
+			y_min_core = particle.y;
+		if(particle.y > y_max_core)
+			y_max_core = coreParticles.vertices[p].y;
+		if(xy_unit_dir * particle.y + xy_unit_dir * particle.x < xy_min_core)
+			xy_min_core = xy_unit_dir * particle.y + xy_unit_dir * particle.x;
+		if(xy_unit_dir * particle.y + xy_unit_dir * particle.x > xy_max_core)
+			xy_max_core = xy_unit_dir * particle.y + xy_unit_dir * particle.x;
+		if(mxy_unit_dir * particle.y + xy_unit_dir * particle.x < mxy_min_core)
+			mxy_min_core = mxy_unit_dir * particle.y + xy_unit_dir * particle.x;
+		if(mxy_unit_dir * particle.y + xy_unit_dir * particle.x > mxy_max_core)
+			mxy_max_core = mxy_unit_dir * particle.y + xy_unit_dir * particle.x;
+	}
+	wx_p = x_max - x_min;
+	wx_q = x_max_core - x_min_core;
+	wy_p = y_max - y_min;
+	wy_q = y_max_core - y_min_core;
+	wxy_p = xy_max - xy_min;
+	wxy_q = xy_max_core - xy_min_core;
+	wmxy_p = mxy_max - mxy_min;
+	wmxy_q = mxy_max_core - mxy_min_core;
+	x_error = (wx_p - wx_q) / wx_p;
+	y_error = (wy_p - wy_q) / wy_p;
+	xy_error = (wxy_p - wxy_q) / wxy_p;
+	mxy_error = (wmxy_p - wmxy_q) / wmxy_p;
+
+	wx_p.innerHTML = x_max - x_min;
+	wy_p.innerHTML = y_max - y_min;
+	wx_q.innerHTML = x_max_core - x_min_core;
+	wy_q.innerHTML = y_max_core - y_min_core;
+	coreset_err.innerHTML = Math.round(Math.max(x_error, y_error, xy_error, mxy_error) * 1000000) / 1000000;
+
+	/*
+	console.log(x_error < EPSILON);
+	console.log(y_error < EPSILON);
+	console.log(xy_error < EPSILON);
+	console.log(mxy_error < EPSILON);
+	console.log(x_error);
+	console.log(y_error);
+	console.log(xy_error);
+	console.log(mxy_error);
+	*/
+}
+
+
+	function refresh() {
+		EPSILON = epsilon.value;
+		DELTA = Math.sqrt(EPSILON * ALPHA);
+		CORE_PARTICLE_COUNT = Math.ceil(1/DELTA);
+		epsilon_value.innerHTML = EPSILON;
+		coreset_size.innerHTML = CORE_PARTICLE_COUNT;
+		pointsinP.innerHTML = PARTICLE_COUNT;
+
+		eraseScene();
+		buildScene();
+	}
+</script></body>

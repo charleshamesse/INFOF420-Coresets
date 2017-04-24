@@ -1,0 +1,89 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper,left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{eurosym}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+
+\title{INFO-F420 - Computational Geometry - Project\\Geometric Approximations via Coresets}
+\date{\vspace{-7ex}
+Charles \textsc{Hamesse} (École Polytechnique)\\
+\vspace{2ex}November 2016}
+\begin{document}
+
+
+\maketitle
+\begin{abstract}
+    The paradigm of coresets has recently emerged as a powerful tool for efficiently approximating various extent measures of a point set P. Using this paradigm, one quickly computes a small subset Q of P, called a coreset , that approximates the original set P and and then solves the problem on Q using a relatively inefficient algorithm. The solution for Q is then translated to an approximate solution to the original point set P. 
+\end{abstract}
+
+
+%%%%%%%%%%%%%%%%
+% Main content
+%%%%%%%%%%%%%%%%
+\section{Proposal}
+I would like to work on coresets and implement concrete coreset construction algorithms. In fact, the literature on this topic remains quite theoretical and lacks of actual examples to me.\\
+
+Coresets (also called $\varepsilon-$approximations) are of great interest regarding today's use of technologies: we deal with huge amounts of data, coming from high-throughput sources. For example, in computer vision or machine learning, we deal with $n$-dimensional data points and often implement border (or \textit{extent}) recognition techniques to reveal the shape, the boundaries of some objects. Hence being able to approximate the extent of such point sets seems a valuable skill. In this sense, I will first consider problems of shape fitting using coresets. That is, given an input point set $P$, the goal is to find the best fitting shape from some class to $P$. Just to name a few, these shape classes include for example squares, circles as well as cubes, spheres or even cylinders.
+
+\paragraph{Interactive experience} I will put emphasis on the visual aspect. As stated above, it seems like there isn't much visual educational material on this type of geometric approximation. This leads to the idea for the main interactive part of the project: implementing a shape fitting algorithm based on various 2D or 3D point sets, given the base shape classes. Points sets can come from various sources, e.g. user input (if 2D), random generation or generation from a base shape after some alteration (e.g. generating a cylinder then adding noise to its points' coordinates).\\
+
+\paragraph{Theoretical background} I would implement the technique described in \textit{Approximating Extent Measures of Points} [2] for the task. I quickly went through this paper and a lot of related work, and it seems a good starting point. More precisely, I already have an idea of what topics I \textit{must} talk about in the theoretical part of the project:
+\begin{enumerate}
+	\item Introduction: 
+		\begin{enumerate}
+			\item Definition of coresets and critical notions
+			\item Description of shape fitting problems (e.g. sphere-shell problems or  cylindrical-shell problems)
+		\end{enumerate}
+	\item Preliminaries
+		\begin{enumerate}
+			\item Envelopes and extent
+			\item Directions and directional width
+		\end{enumerate}
+	\item Approximating the extent of linear functions
+		\begin{enumerate}
+			\item Reduction to fat point set (as in Lemma 3.1, briefly)
+			\item Weaker bound on $\varepsilon$-approximation (as in Lemma 3.4, briefly)
+			\item $\varepsilon$-approximation construction (as in Lemma 3.5, important)
+			\item Other subjects (as in Lemma 3.6 to 3.11, maybe briefly)
+		\end{enumerate}
+	\item Applications
+		\begin{enumerate}
+			\item Approximating faithful extent measures
+			\item Minimum-width spherical shell
+			\item Minimum-width cylindrical shell
+		\end{enumerate}
+\end{enumerate}  
+I think this is a proper way to introduce the concept of coresets and play with it, but it is of course subject to potential changes along the way.
+%%%%%%%%%%%%%%%%
+% Appendix 
+%%%%%%%%%%%%%%%%
+\begin{thebibliography}{1}
+
+\bibitem{1} Pankaj K. Agarwal, Sariel Har-Peled, Kasturi R. Varadarajan, Geometric Approximation via Coresets: \url{http://sarielhp.org/papers/04/survey/survey.pdf}
+
+\bibitem{2} Pankaj K. Agarwal, Sariel Har-Peled, Kasturi R. Varadarajan, Approximating Extent Measures of Points: \url{http://sarielhp.org/p/01/fitting/fitting.pdf}
+
+
+\bibitem{3} Jeff M. Phillips, Coresets and Sketches: \url{https://arxiv.org/pdf/1601.00617v2.pdf}
+
+\bibitem{4} Gill Barequet, Sariel Har-Peled, Efficiently Approximating the Minimum-Volume
+Bounding Box of a Point Set in Three Dimensions: \url{http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.78.229}
+
+\bibitem{5} Dan Feldman, Micha Feigin and Nir Sochen: Learning Big (Image) Data via Coresets for Dictionaries: \url{https://people.csail.mit.edu/dannyf/JMIV.pdf}
+
+\bibitem{6} Sariel Har-Peled, Geometric Approximation Algorithms (course from Standford University): \url{https://graphics.stanford.edu/courses/cs468-06-fall/Papers/01%20har-peled%20notes.pdf}
+
+\bibitem{7} Jian Zhang: Massive Data Streams in Graph Theory and Computational Geometry, :\url{http://www.cs.yale.edu/homes/jf/Jian-thesis.pdf}
+
+
+\end{thebibliography}
+
+
+\end{document}
+

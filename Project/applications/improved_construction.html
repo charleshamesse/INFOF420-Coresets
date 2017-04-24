@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<script src='vendor/three.js/build/three.min.js'></script>
+<script src='vendor/three.js/examples/js/controls/OrbitControls.js'></script>
+<script src='kdtree.js'></script>
+<link href="https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300,700" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<body>
+	<div class="row" id="container">
+		<div class="col-sm-2" id="header">
+			<div>
+				<div>
+					Geometric Approximations via Coresets <br />
+					Back to <a href="http://51.255.40.235/EPB/INFO-F420/P/">article </a> <br /><br />
+				</div>
+				<form>
+					<!--
+					Form to edit the scene's parameters
+					Default values in the span tags are the ones resulting from default parameters below
+					-->
+					<h2>Input point set</h2>
+					<div class="form-group">
+						<label for="email">Number of points (<span id="pointsinP_value">10000</span>)</label>
+						<input type="range" class="form-control" id="pointsinP" value="10000" max="25000" min="1" step="1" onchange="refresh();">
+					</div>
+					<div class="form-group">
+						<label for="email">X-direction spread (<span id="x_spread_value">0.7</span>)</label>
+						<input type="range" class="form-control" id="x_spread" value="0.7" max="1" min="0" step="0.001" onchange="refresh();">
+					</div>
+					<div class="form-group">
+						<label for="email">Y-direction spread (<span id="y_spread_value">0.7</span>)</label>
+						<input type="range" class="form-control" id="y_spread" value="0.7" max="1" min="0" step="0.001" onchange="refresh();">
+					</div>
+					<div class="form-group">
+						<label for="email">Z-direction spread (<span id="z_spread_value">0.7</span>)</label>
+						<input type="range" class="form-control" id="z_spread" value="0.7" max="1" min="0" step="0.001" onchange="refresh();">
+					</div>
+					<br />
+					<h2>Coreset</h2>
+					<div class="form-group">
+						<label for="email">Epsilon (<span id="epsilon_value">0.01</span>) - |Q| = <span id="coreset_size">135</span></label>
+						<input type="range" class="form-control" id="epsilon" value="0.001" max="0.25" min="0.0001" step="0.001" onchange="refresh();">
+					</div>
+				</form>
+			</div>
+		</div>
+		<div class="col-sm-10" id="content">
+		</div>
+	</div>
+<script>
+	// Init
+	function getRandom(size) {
+		return ((Math.random() + Math.random()) - 1) * size + size;
+	}
+	function distance(a, b, c){
+	  return Math.sqrt(Math.pow(a.x - b.x, 2) +  Math.pow(a.y - b.y, 2) + Math.pow(a.z - b.z, 2));
+	}
+	var renderer	= new THREE.WebGLRenderer({
+		antialias	: true
+	});
+	var contentDiv = document.getElementById('content');
+	renderer.setClearColor(new THREE.Color(0xffffff), 1)
+	renderer.setSize(contentDiv.clientWidth, contentDiv.clientHeight);
+	document.getElementById("content").appendChild( renderer.domElement );
+	var onRenderFcts = [];
+	var scene	= new THREE.Scene();
+	var camera	= new THREE.PerspectiveCamera(65, contentDiv.clientWidth / contentDiv.clientHeight, 0.01, 1000);
+	camera.position.z = 6;
+	var controls	= new THREE.OrbitControls(camera, content);
+
+	//
+	//
+
+	// Parameters - will be updated with user controls
+	var D = 3,
+			EPSILON = 0.001,
+			ALPHA = 0.05,
+			DELTA = Math.sqrt(EPSILON * ALPHA),
+			CORE_PARTICLE_COUNT = Math.ceil(1/DELTA),
+			OUTER_RADIUS = Math.sqrt(D + 1),
+			PARTICLE_COUNT = 10000,
+			X_SPREAD = 0.7,
+			Y_SPREAD = 0.7,
+			Z_SPREAD = 0.7;
+
+	// Particle variables
+	function buildScene() {
+		var particles = new THREE.Geometry(),
+				coreParticles = new THREE.Geometry(),
+		    particleMaterial = new THREE.ParticleBasicMaterial({
+					color: 0x000000,
+	  			size: 0.01,
+				}),
+				coreParticleMaterial = new THREE.ParticleBasicMaterial({
+					color: 0x0000ff,
+					size: 0.08
+				}),
+				sphereParticleMaterial = new THREE.ParticleBasicMaterial({
+					color: 0x4444ff,
+					size: 0.04
+				}),
+				sphereParticles = new THREE.Geometry(),
+				lineMaterial = new THREE.LineBasicMaterial({
+					color: 0x9999ff
+				});
+				lineCoreMaterial = new THREE.LineBasicMaterial({
+					color: 0x0000ff,
+					linewidth: 10,
+				});
+
+		// Add points to P then insert them in the k-d tree
+		var points = [];
+		for (var p = 0; p < PARTICLE_COUNT; p++) {
+			var x = getRandom(X_SPREAD) - X_SPREAD,
+					y = getRandom(Y_SPREAD) - Y_SPREAD,
+					z = getRandom(Z_SPREAD) - Z_SPREAD;
+			if(p < 10) console.log([x,y,z]);
+			var particle = new THREE.Vector3(x, y, z);
+		  // Add it to the geometry
+		  particles.vertices.push(particle);
+			points.push({x: x, y: y, z: z});
+		}
+		var tree = new kdTree(points, distance, ["x", "y", "z"]);
+
+		// Draw J, the outer d-dimensional sphere
+		// And add points, evenly spread on the surface with Fibonacci's algorithm
+		offset = 2./CORE_PARTICLE_COUNT;
+		increment = Math.PI * (3. - Math.sqrt(5.));
+		for (var p = 0; p < CORE_PARTICLE_COUNT; p++) {
+			// Add the point on outer sphere J
+	    var	y = (((p * offset) - 1) + (offset / 2))*1,
+	    		r = Math.sqrt(1 - Math.pow(y,2)),
+	    		phi = ((p + 1) % CORE_PARTICLE_COUNT) * increment,
+	    		x = Math.cos(phi) * r,
+	    		z = Math.sin(phi) * r,
+					[x,y,z] = [x*OUTER_RADIUS, y*OUTER_RADIUS, z*OUTER_RADIUS],
+					particle = new THREE.Vector3(x,y,z);
+			sphereParticles.vertices.push(particle);
+
+			// Find the nearest point in set P
+			var nearest = tree.nearest({ x: x, y: y, z: z }, 1)[0][0],
+					nearestParticle = new THREE.Vector3(nearest.x,nearest.y,nearest.z);
+			coreParticles.vertices.push(nearestParticle);
+
+			// Connect them with a line
+			var lineGeometry = new THREE.Geometry(),
+					line = new THREE.Line(lineGeometry, lineMaterial);
+			lineGeometry.vertices.push(particle, nearestParticle);
+			scene.add(line);
+		}
+
+	// Instantiate the whole particle system for P
+	var particleSystem = new THREE.ParticleSystem(
+	    particles,
+	    particleMaterial);
+	scene.add(particleSystem);
+
+	// Same for the outer envelope J
+	var sphereParticleSystem = new THREE.ParticleSystem(
+	    sphereParticles,
+	    sphereParticleMaterial);
+	scene.add(sphereParticleSystem);
+
+	// Highlight particles in P that belong to the coreset
+	var coreParticlesystem = new THREE.ParticleSystem(
+	    coreParticles,
+	    coreParticleMaterial);
+	scene.add(coreParticlesystem);
+
+	// Draw sphere J
+	var geometry = new THREE.SphereGeometry( OUTER_RADIUS, 32, 32 );
+	var material = new THREE.MeshBasicMaterial( {color: 0x0000ff, wireframe: true, wireframeLinewidth: 1, opacity: 0.1, transparent: true } );
+	var sphere = new THREE.Mesh( geometry, material );
+	scene.add(sphere);
+}
+buildScene();
+
+//
+//
+
+// Render the whole scene
+window.addEventListener('resize', function(){
+	renderer.setSize(contentDiv.clientWidth, contentDiv.clientHeight)
+	camera.aspect	= contentDiv.clientWidth / contentDiv.clientHeight
+	camera.updateProjectionMatrix()
+}, false)
+onRenderFcts.push(function(){
+	renderer.render( scene, camera );
+})
+var lastTimeMsec= null
+requestAnimationFrame(function animate(nowMsec){
+	// keep looping
+	requestAnimationFrame( animate );
+	// measure time
+	lastTimeMsec	= lastTimeMsec || nowMsec-1000/60
+	var deltaMsec	= Math.min(200, nowMsec - lastTimeMsec)
+	lastTimeMsec	= nowMsec
+	// call each update function
+	onRenderFcts.forEach(function(onRenderFct){
+		onRenderFct(deltaMsec/1000, nowMsec/1000)
+	})
+})
+function eraseScene() {
+	while(scene.children.length > 0){
+    scene.remove(scene.children[0]);
+	}
+}
+
+
+	function refresh() {
+		PARTICLE_COUNT = pointsinP.value;
+		pointsinP_value.innerHTML = PARTICLE_COUNT;
+
+		EPSILON = epsilon.value;
+		DELTA = Math.sqrt(EPSILON * ALPHA);
+		CORE_PARTICLE_COUNT = Math.ceil(1/DELTA);
+		epsilon_value.innerHTML = EPSILON;
+		coreset_size.innerHTML = CORE_PARTICLE_COUNT;
+
+		X_SPREAD = Math.abs(x_spread.value);
+		x_spread_value.innerHTML = X_SPREAD;
+		Y_SPREAD = Math.abs(y_spread.value);
+		y_spread_value.innerHTML = Y_SPREAD;
+		Z_SPREAD = Math.abs(z_spread.value);
+		z_spread_value.innerHTML = Z_SPREAD;
+
+		eraseScene();
+		buildScene();
+	}
+</script></body>
