@@ -244,7 +244,7 @@ $$
 p+ \alpha \mathbb{C} \subset CH(P) \subset p+ \mathbb{C}
 $$
 
-So in this sense, an $\alpha$-fat point set is just a non-empty set of points whose convex hull which:
+So in this sense, an $\alpha$-fat point set is just a non-empty set of points whose convex hull:
 - contains the hypercube of edge length $\alpha$ centered at the origin,
 - is contained in the unit hypercube.
 
