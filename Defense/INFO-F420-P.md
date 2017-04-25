@@ -268,6 +268,27 @@ Demo -->
 
 ---
 
+#### A simple coreset construction: <span class="lighter">the Hausdorff distance</span>
+
+It is defined as:
+
+$$
+d_H(X,Y) = \max\{\,\sup _{{x\in X}}\inf _{{y\in Y}}d(x,y),\,\sup _{{y\in Y}}\inf _{{x\in X}}d(x,y)\,\}
+$$
+
+<div align="center">
+	<img src="img/hausdorff.png" style="width: 30%" />
+</div>
+
+
+**Intuition:** it is, in a way, the greatest of all the distances from a point in one set to the closest point in the other set.
+
+
+<small>Illustration by Rocchini - Own work, CC BY 3.0, https://commons.wikimedia.org/w/index.php?curid=2918812
+</small>
+
+---
+
 #### A simple coreset construction: <span class="lighter">an example</span>
 
 <div align="center">
@@ -290,7 +311,7 @@ $$
 $$
 <!-- 
 for any point $x$ on $S$, there exists a point $y \in J$ such that $||x - y|| \leq \delta$. -->
-- This can be done by processing $P$ into a data structure that can answer $\varepsilon$-approximate nearest-neighbor queries.
+- We process $P$ into a data structure that can answer $\varepsilon$-approximate nearest-neighbor queries.
 - K-d trees allow exact nearest-neighbor queries.
 
 ---
@@ -325,7 +346,7 @@ See how the diagonal widths should be a bit smaller than those of the original p
 
 #### Implementation: <span class="lighter">computing the error</span>
 
-For a set of directions $\Delta$ in $\mathbb{S}^1$ (2D circle), the error is defined as:
+For a set of directions $\Delta$, the error is defined as:
 
 $$
 err(Q, P) = \max_{u \in \Delta} \frac{\omega(u,P) - \omega(u,Q)}{\omega(u, P)}

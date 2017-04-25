@@ -93,3 +93,6 @@ Demo time
 
 #29
 Questions
+
+Hausdorff
+The Hausdorff distance is the longest distance you can be forced to travel by an adversary who chooses a point in one of the two sets, from where you then must travel to the other set. In other words, it is the greatest of all the distances from a point in one set to the closest point in the other set.
