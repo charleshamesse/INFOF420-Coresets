@@ -49,6 +49,7 @@ To give a formal definition of directions and widths, let's first review the n-s
 
 #15
 Now let Sd−1 be the unit sphere centered at the origin in Rd. For any direction u in Sd−1 and a point set P in Rd, we define the directional width as:ω(u, P ) = max⟨u, p⟩ − min⟨u, p⟩ p∈P p∈Pwhere ⟨⋅, ⋅⟩ is the usual inner product, which will project all points on the direction u.
+Demo on directional widths
 
 #16
 Let's again introduce a parameter μ > 0 and set Δ ⊆ Rd.A set Q in P is a μ-approximation of P within Δ in Rd if, for each u ∈ Δ:omega of (u, Q ) is at least 1 - mu times ω(u, P). Yep, same concept as last time.. and the time before.

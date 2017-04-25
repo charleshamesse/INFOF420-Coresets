@@ -12,7 +12,7 @@
 .slide h2 {
 	color: #222 !important;
 }
-.slide h3 {
+.slide h3 {	
 	color: #333 !important;
 }
 .slide h4 {

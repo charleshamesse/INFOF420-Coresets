@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<script src='vendor/three.js/build/three.min.js'></script>
+<script src='vendor/three.js/examples/js/controls/OrbitControls.js'></script>
+<script src='kdtree.js'></script>
+<link href="https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300,700" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<body>
+	<div class="row" id="container">
+		<div class="col-sm-2" id="header">
+			<div>
+				<div>
+					Geometric Approximations via Coresets <br />
+					Back to <a href="http://51.255.40.235/EPB/INFO-F420/P/">article </a> <br /><br />
+				</div>
+				<form>
+					<!--
+					Form to edit the scene's parameters
+					Default values in the span tags are the ones resulting from default parameters below
+					-->
+					<h2>Input point set P</h2>
+					<div class="form-group">
+						<label for="email">Number of points (<span id="pointsinP_value">500</span>)</label>
+						<input type="range" class="form-control" id="pointsinP" value="500" max="1000" min="1" step="1" onchange="refresh();">
+					</div>
+					<div class="form-group">
+						<label for="email">X-direction spread (<span id="x_spread_value">0.7</span>)</label>
+						<input type="range" class="form-control" id="x_spread" value="0.7" max="1" min="0" step="0.001" onchange="refresh();">
+					</div>
+					<div class="form-group">
+						<label for="email">Y-direction spread (<span id="y_spread_value">0.7</span>)</label>
+						<input type="range" class="form-control" id="y_spread" value="0.7" max="1" min="0" step="0.001" onchange="refresh();">
+					</div>
+					<br />
+					<h2>Directional width</h2>
+					<div class="form-group">
+						<label for="angle">Angle (<span id="angle_value">0.7</span>)</label>
+						<input type="range" class="form-control" id="angle" value="0" max="180" min="0" step="1" onchange="refreshAngle();">
+						<br />
+						<label>Value: <span id="dir_width"></span></label>
+
+					</div>
+
+				</form>
+			</div>
+		</div>
+		<div class="col-sm-10" id="content">
+		</div>
+	</div>
+<script>
+	// Init
+	function getRandom(size) {
+		return ((Math.random() + Math.random()) - 1) * size + size;
+	}
+	function distance(a, b, c){
+	  return Math.sqrt(Math.pow(a.x - b.x, 2) +  Math.pow(a.y - b.y, 2));
+	}
+	var renderer	= new THREE.WebGLRenderer({
+		antialias	: true
+	});
+	var contentDiv = document.getElementById('content');
+	renderer.setClearColor(new THREE.Color(0xffffff), 1)
+	renderer.setSize(contentDiv.clientWidth, contentDiv.clientHeight);
+	document.getElementById("content").appendChild( renderer.domElement );
+	var onRenderFcts = [];
+	var scene	= new THREE.Scene();
+	var camera	= new THREE.PerspectiveCamera(65, contentDiv.clientWidth / contentDiv.clientHeight, 0.01, 1000);
+	camera.position.z = 6;
+	var controls	= new THREE.OrbitControls(camera, content);
+
+	// Parameters - will be updated with user controls
+	var D = 2,
+			EPSILON = 0.001,
+			ALPHA = 0.1,
+			DELTA = Math.sqrt(EPSILON * ALPHA),
+			CORE_PARTICLE_COUNT = Math.ceil(1/DELTA),
+			OUTER_RADIUS = Math.sqrt(D + 1) // corrected!
+			PARTICLE_COUNT = 500,
+			X_SPREAD = 0.7,
+			Y_SPREAD = 0.7;
+
+
+	// Point set P
+	var particles = new THREE.Geometry(),
+			coreParticles = new THREE.Geometry(),
+	    particleMaterial = new THREE.ParticleBasicMaterial({
+				color: 0x000000,
+  			size: 0.03,
+			});
+
+
+	// Particle variables
+	function buildScene() {
+		// Add points to P then insert them in the k-d tree
+		for (var p = 0; p < PARTICLE_COUNT; p++) {
+			var x = getRandom(X_SPREAD) - X_SPREAD,
+					y = getRandom(Y_SPREAD) - Y_SPREAD;
+			var particle = new THREE.Vector3(x, y, 0);
+		  particles.vertices.push(particle);
+		}
+
+	// Instantiate the whole particle system for P
+	var particleSystem = new THREE.ParticleSystem(
+	    particles,
+	    particleMaterial);
+	scene.add(particleSystem);
+}
+var dir_x = Math.cos(angle.value/180*Math.PI),
+		dir_y = Math.sin(angle.value/180*Math.PI);
+
+var lineMaterial = new THREE.LineBasicMaterial({
+	color: 0x9999ff,
+	width: 2
+});
+function refreshAngle() {
+	// Plot the direction
+	dir_x = Math.cos(angle.value/180*Math.PI);
+	dir_y = Math.sin(angle.value/180*Math.PI);
+	/*
+	var lineGeometry = new THREE.Geometry(),
+			line = new THREE.Line(lineGeometry, lineMaterial);
+	lineGeometry.vertices.push(new THREE.Vector3(0, 0, 0), new THREE.Vector3(dir_x, dir_y, 0));
+	scene.add(line);
+	*/
+
+	// Compute width
+	computeWidth(particles, dir_x, dir_y);
+
+}
+buildScene();
+
+//
+//
+
+// Render the whole scene
+window.addEventListener('resize', function(){
+	renderer.setSize(contentDiv.clientWidth, contentDiv.clientHeight)
+	camera.aspect	= contentDiv.clientWidth / contentDiv.clientHeight
+	camera.updateProjectionMatrix()
+}, false)
+onRenderFcts.push(function(){
+	renderer.render( scene, camera );
+})
+var lastTimeMsec= null
+requestAnimationFrame(function animate(nowMsec){
+	// keep looping
+	requestAnimationFrame( animate );
+	// measure time
+	lastTimeMsec	= lastTimeMsec || nowMsec-1000/60
+	var deltaMsec	= Math.min(200, nowMsec - lastTimeMsec)
+	lastTimeMsec	= nowMsec
+	// call each update function
+	onRenderFcts.forEach(function(onRenderFct){
+		onRenderFct(deltaMsec/1000, nowMsec/1000)
+	})
+})
+function eraseScene() {
+	while(scene.children.length > 0){
+    scene.remove(scene.children[0]);
+	}
+}
+
+function computeWidth(particles, dir_x, dir_y) {
+	u_min = 0;
+	u_max = 0;
+
+	for(var p = 0; p < particles.vertices.length; p++) {
+		particle = particles.vertices[p];
+		if(dir_y * particle.y + dir_x * particle.x < u_min)
+			u_min = dir_y * particle.y + dir_x * particle.x;
+		if(dir_y * particle.y + dir_x * particle.x > u_max)
+			u_max = dir_y * particle.y + dir_x * particle.x;
+	}
+
+	console.log(u_max, u_min);
+	console.log(u_max - u_min);
+
+	var p1 = new THREE.Vector3(dir_x * u_min, dir_y * u_min, 0);
+	var p2 = new THREE.Vector3(dir_x * u_max, dir_y * u_max, 0);
+	var perp_dir_x = -dir_y,
+			perp_dir_y = dir_x;
+
+	var p3 = new THREE.Vector3(p1.x - perp_dir_x, p1.y - perp_dir_y, 0);
+	var p4 = new THREE.Vector3(p1.x + perp_dir_x, p1.y + perp_dir_y, 0);
+	var lineGeometry2 = new THREE.Geometry(),
+			line2 = new THREE.Line(lineGeometry2, lineMaterial);
+	lineGeometry2.vertices.push(p3, p4);
+	scene.add(line2);
+
+	var p5 = new THREE.Vector3(p2.x - perp_dir_x, p2.y - perp_dir_y, 0);
+	var p6 = new THREE.Vector3(p2.x + perp_dir_x, p2.y + perp_dir_y, 0);
+	var lineGeometry3 = new THREE.Geometry(),
+			line3 = new THREE.Line(lineGeometry3, lineMaterial);
+	lineGeometry3.vertices.push(p5, p6);
+	scene.add(line3);
+
+
+}
+
+
+	function refresh() {
+		PARTICLE_COUNT = pointsinP.value;
+		pointsinP_value.innerHTML = PARTICLE_COUNT;
+
+		ANGLE = Math.abs(angle.value);
+		angle_value.innerHTML = ANGLE;
+
+		eraseScene();
+		buildScene();
+	}
+</script></body>
