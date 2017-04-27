@@ -1,98 +1,0 @@
-Some inspiration not to fall short of words..
-
-#1
-I'm going to talk about the framework of coresets which, in short, is a way to approximate extent measures of sets of points.
-
-#2
-Here are the subjects for today, so at first I start by describing the problem at hand with geometric approximations. Then we'll go through some generic theoretical notions on envelopes, extent, directions and widths. Then finally I'll describe two ways to build coresets and show you a demo.
-
-#3
-About geometric approximations
-
-#4
-An usual technique used to develop approximation algorithms is to extract small amounts of relevant information from the input data and perform relatively-heavy computation on this data.
-
-For example, we could think of random sampling, surface simplification or feature extraction.
-If the input is a set of points, the question can be reduced to finding a small subset, say a coreset, such that one can perform the desired computation on the coreset. This computation can in turn be relatively intensive.
-
-#5
-Authors say that considerable work has been done on measuring various descriptors of the extent of a set P of n points in Rd. Exact algorithms for computing extent measures are generally expensive.
-It is said that the best known algorithms for computing the smallest volume bounding box or tetrahedron containing P in Rd require O(nd) time.
-
-#6
-Ideally, one would like to argue that:for any extent measure μfor any paramater ε in the range 0,1There exists a subset Q in P whose size is 1/ε^O(1) such that the extent measure of Q is at least 1 - ε) times that of P
-
-#7
-Here's an example of a coreset constructed on a grid, note that each cell of the grid has at most 1 point belonging to the coreset
-
-#8
-Envelopes and extent measures
-
-#9
-Say you have a set of functions as in this plot. Clearly, the intuition of envelopes is that the upper envelope is greater in any point that all functions, same for the lower envelope. Then the extent is really the difference of these two.
-
-#10
-Let F be a set of n d-variate functions defined over x in Rd:1. The lower envelope of F is the graph of the min of all f(x) in F2. The upper envelope of F is the graph of the max of all f(x) in F
-
-#11
-The extent is defined as the difference of the upper envelope and the lower envelope.Now if we introduce a parameter ε > 0 and say Δ is a subset of Rd, the ε-approximation of the extent of F within Δ is the subset G such that, for each x in Δ we get the same relation as seen before: the extent of G is at least (1 − ε) times the extent of F.
-Note that the extent of G is always smaller or equal than that of F, because G is a subset of F.If this Δ is actually Rd, this is simply an ε-approximation of the extent of F, not within Δ.
-
-#12
-Directions and directional widths
-
-#13
-Here you have a set of points, a direction u and and width omega. Clearly, you can see that omega is plotted parallel to u: it is the directional width of this point set with respect to u.
-
-#14
-To give a formal definition of directions and widths, let's first review the n-sphere. Because we can express direction as unit vectors pointing on a n-dimensional unit sphere. The n-sphere is the generalization of the ordinary sphere to spaces of arbitrary dimension. It is an n-dimensional manifold that can be embedded in Euclidean (n + 1)-space. Its defined by the set of points in Rn+1 whose distance to the centre is some radius r.
-
-#15
-Now let Sd−1 be the unit sphere centered at the origin in Rd. For any direction u in Sd−1 and a point set P in Rd, we define the directional width as:ω(u, P ) = max⟨u, p⟩ − min⟨u, p⟩ p∈P p∈Pwhere ⟨⋅, ⋅⟩ is the usual inner product, which will project all points on the direction u.
-Demo on directional widths
-
-#16
-Let's again introduce a parameter μ > 0 and set Δ ⊆ Rd.A set Q in P is a μ-approximation of P within Δ in Rd if, for each u ∈ Δ:omega of (u, Q ) is at least 1 - mu times ω(u, P). Yep, same concept as last time.. and the time before.
-
-#17
-Now I'm going to describe a very simple coreset construction algorithm
-
-#18
-In the litterature, it is shown that:1. Any point set can be turned into an α-fat point set using a linear non-singular transform.2. There exists an algorithm for computing coresets of α-fat point sets.So we will only show how to build a corset for an alpha fat point set, after we describe the notion of alpha fat.
-
-#19
-Intuitively, an α-fat point set is a non-empty set of points whose convex hull:contains the hypercube of edge length α centered at the origin,is contained in the unit hypercube.
-
-#20
-Enough theoretical notions, let's discover the algorithm.
-Consider a d-dimensional grid Z whose cell size (edge length) δ = εα/6sqrt(d).  For each column along the xd-axis in Z, pick one point from both extreme nonempty cells and add them to Q.We can show that the Hausdorff distance between Q and P is smaller than εα and Q makes an ε-approximation of P. Intuitively, this is because of the choice of the size of the grid. I can prove this statement later on if need be, the proof is somewhat elegant to me.It can also be shown that the size of Q is of big O of(1 over alpha epsilon to the power of d−1, so Q can be constructed in time O(n + 1/(αε)d−1).
-
-#21
-Here's an example. See that for each column in the usual x axis, we took one point in both extreme cells containing points. 
-
-#22
-Now I'm going to show a much more beautiful (at least to me) construction of a coreset. It is the one I chose to implement in the project, which I will show soon enough.
-
-#23
-Let S be the sphere of radius sqrt(d + 1) centered at the origin and set δ = sqrt(εα) with alpha being the edge length of the inner hypercube of the convex hull and a value of epsilon so that delta is smaller than 1/2.We can construct a relatively small set J of points on S so that:for x in S, there a point y in J such that the distance from one another is smaller or equal to δ.This can be done by processing P into a data structure thatcan answer ε-approximate nearest-neighbor queries. K-d trees allow exact nearest-neighbor queries. I used k-d trees for my project.
-
-#24So the idea is that for query point q on the edge of the sphere, φ(q) will be the point of P returned by this data structure.We will compute φ(y) for each point y ∈ J and return the set Q of all phi of y's.
-
-#25
-Here you can observe the points on the edge of the sphere with links to their nearest neighbour in the original point set.
-The point set in contained in the unit hypercube or here, the square, so the radius of the sphere is sqrt(2+1), or roughly 1.7.
-
-#26
-Now I'm going to give you a hint on some implementation detail and tell you how the error of the approximation is computed.
-
-#27
-I'm going to take the case of a 2D point set. For a set of directions Δ in S1 (..the 2D circle), the error is defined as the maximum value amongst all relatives errors on the directional width for all directions u in Δ.Clearly, its accuracy rises with the number of directions considered. Authors use 1000 directions in a 4D space and I implemented 4 directions in a 2D space: the horizontal, the vertical and both diagonals, which should be enough for the proof of concept. 
-
-#28
-Demo time
-
-#29
-Questions
-
-Hausdorff
-The Hausdorff distance is the longest distance you can be forced to travel by an adversary who chooses a point in one of the two sets, from where you then must travel to the other set. In other words, it is the greatest of all the distances from a point in one set to the closest point in the other set.
